@@ -14,6 +14,9 @@ __author__ = "bwbazemore@uga.edu (Brad Bazemore)"
 
 # TODO need to find some better was of handling OSerror 11 or preventing it, any ideas?
 
+def clamp(n, minn, maxn):
+    return max(min(maxn, n), minn)
+
 class EncoderOdom:
     def __init__(self, ticks_per_meter, base_width):
         self.TICKS_PER_METER = ticks_per_meter
@@ -235,30 +238,44 @@ class Node:
                 self.updater.update()
             r_time.sleep()
 
+
+
     def cmd_vel_callback(self, twist):
         self.last_set_speed_time = rospy.get_rostime()
 
-        linear_x = twist.linear.x
-        if linear_x > self.MAX_SPEED:
-            linear_x = self.MAX_SPEED
-        if linear_x < -self.MAX_SPEED:
-            linear_x = -self.MAX_SPEED
+        # if linear_x > self.MAX_SPEED:
+        #     linear_x = self.MAX_SPEED
+        # if linear_x < -self.MAX_SPEED:
+        #     linear_x = -self.MAX_SPEED
 
-        vr = linear_x + twist.angular.z * self.BASE_WIDTH / 2.0  # m/s
-        vl = linear_x - twist.angular.z * self.BASE_WIDTH / 2.0
+        linear_x = clamp(twist.linear.x, -1.0, 1.0)
 
-        vr_ticks = int(vr * self.TICKS_PER_METER)  # ticks/s
-        vl_ticks = int(vl * self.TICKS_PER_METER)
+
+        angular_z = clamp(twist.angular.z, -1.0, 1.0)
+
+
+        vr = linear_x + angular_z
+        vl = linear_x - angular_z
+
+        pwm_r = clamp(vr * 127.0, -127.0, 127.0)
+        pwm_l = clamp(vl * 127.0, -127.0, 127.0)
+
+
+
+        # vr_ticks = int(vr * self.TICKS_PER_METER)  # ticks/s
+        # vl_ticks = int(vl * self.TICKS_PER_METER)
 
         rospy.logdebug("vr_ticks:%d vl_ticks: %d", vr_ticks, vl_ticks)
 
         try:
             # This is a hack way to keep a poorly tuned PID from making noise at speed 0
-            if vr_ticks is 0 and vl_ticks is 0:
-                roboclaw.ForwardM1(self.address, 0)
-                roboclaw.ForwardM2(self.address, 0)
-            else:
-                roboclaw.SpeedM1M2(self.address, vr_ticks, vl_ticks)
+            # if vr_ticks is 0 and vl_ticks is 0:
+            #     roboclaw.ForwardM1(self.address, 0)
+            #     roboclaw.ForwardM2(self.address, 0)
+            # else:
+            #     roboclaw.SpeedM1M2(self.address, vr_ticks, vl_ticks)
+            roboclaw.DutyM1(self.address, pwm_l)
+            roboclaw.DutyM2(self.address, pwm_r)
         except OSError as e:
             rospy.logwarn("SpeedM1M2 OSError: %d", e.errno)
             rospy.logdebug(e)
