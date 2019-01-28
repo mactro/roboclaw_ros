@@ -257,15 +257,15 @@ class Node:
         vr = linear_x + angular_z
         vl = linear_x - angular_z
 
-        pwm_r = clamp(vr * 127.0, -127.0, 127.0)
-        pwm_l = clamp(vl * 127.0, -127.0, 127.0)
+        pwm_r = int(clamp(vr * 127.0, -127.0, 127.0))
+        pwm_l = int(clamp(vl * 127.0, -127.0, 127.0))
 
 
 
         # vr_ticks = int(vr * self.TICKS_PER_METER)  # ticks/s
         # vl_ticks = int(vl * self.TICKS_PER_METER)
 
-        rospy.logdebug("vr_ticks:%d vl_ticks: %d", vr_ticks, vl_ticks)
+        # rospy.logdebug("vr_ticks:%d vl_ticks: %d", pwm_r, pwm_l)
 
         try:
             # This is a hack way to keep a poorly tuned PID from making noise at speed 0
@@ -274,8 +274,14 @@ class Node:
             #     roboclaw.ForwardM2(self.address, 0)
             # else:
             #     roboclaw.SpeedM1M2(self.address, vr_ticks, vl_ticks)
-            roboclaw.DutyM1(self.address, pwm_l)
-            roboclaw.DutyM2(self.address, pwm_r)
+            if pwm_r >= 0:
+                roboclaw.ForwardM1(self.address, pwm_r)
+            else:
+                roboclaw.BackwardM1(self.address, pwm_r)
+            if pwm_l >= 0:
+                roboclaw.ForwardM2(self.address, pwm_l)
+            else:
+                roboclaw.BackwardM2(self.address, pwm_l)
         except OSError as e:
             rospy.logwarn("SpeedM1M2 OSError: %d", e.errno)
             rospy.logdebug(e)
