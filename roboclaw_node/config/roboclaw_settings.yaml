@@ -1,0 +1,11 @@
+roboclaw:
+  M1:
+    vel_kp: 1.23
+    vel_ki: 1.2
+    vel_kd: 0.0
+    qpps: 3456
+  M2:
+    vel_kp: 1.23
+    vel_ki: 1.2
+    vel_kd: 0.0
+    qpps: 3456

@@ -119,6 +119,14 @@ class EncoderOdom:
         self.odom_pub.publish(odom)
 
 
+class MotorSettings:
+    def __init__(self, motor):
+        self.vel_kp = float(rospy.get_param("roboclaw." + motor + ".vel_kp", "2.0"))
+        self.vel_ki = float(rospy.get_param("roboclaw." + motor + ".vel_ki", "1.0"))
+        self.vel_kd = float(rospy.get_param("roboclaw." + motor + ".vel_kd", "0.0"))
+        self.vel.qpps = float(rospy.get_param("roboclaw." + motor + ".vel_qpps", "3600"))
+
+
 class Node:
     def __init__(self):
 
@@ -179,12 +187,18 @@ class Node:
         roboclaw.SpeedM1M2(self.address, 0, 0)
         roboclaw.ResetEncoders(self.address)
 
+        self.M1_settings = MotorSettings("M1")
+        self.M2_settings = MotorSettings("M2")
+
         self.MAX_SPEED = float(rospy.get_param("~max_speed", "2.0"))
         self.TICKS_PER_METER = float(rospy.get_param("~tick_per_meter", "4342.2"))
         self.BASE_WIDTH = float(rospy.get_param("~base_width", "0.315"))
 
         self.encodm = EncoderOdom(self.TICKS_PER_METER, self.BASE_WIDTH)
         self.last_set_speed_time = rospy.get_rostime()
+
+        self.configure_motor("M1", self.M1_settings)
+        self.configure_motor("M2", self.M2_settings)
 
         rospy.Subscriber("cmd_vel", Twist, self.cmd_vel_callback)
 
@@ -196,6 +210,15 @@ class Node:
         rospy.logdebug("max_speed %f", self.MAX_SPEED)
         rospy.logdebug("ticks_per_meter %f", self.TICKS_PER_METER)
         rospy.logdebug("base_width %f", self.BASE_WIDTH)
+
+    def configure_motor(self, motor, settings):
+        if motor == "M1":
+            roboclaw.SetM1VelocityPid(self.address, settings.vel_kp, settings.vel_ki,
+                                      settings.vel_kd, settings.vel_qpps)
+
+        if motor == "M2":
+            roboclaw.SetM2VelocityPid(self.address, settings.vel_kp, settings.vel_ki,
+                                      settings.vel_kd, settings.vel_qpps)
 
     def run(self):
         rospy.loginfo("Starting motor drive")
@@ -234,9 +257,9 @@ class Node:
 
         try:
             if pwm_r >= 0:
-                roboclaw.ForwardM1(self.address, pwm_r)
+                roboclaw.BackwardM1(self.address, pwm_r)
             else:
-                roboclaw.BackwardM1(self.address, -pwm_r)
+                roboclaw.ForwardM1(self.address, -pwm_r)
             if pwm_l >= 0:
                 roboclaw.ForwardM2(self.address, pwm_l)
             else:
